@@ -60,16 +60,16 @@ if __name__ == '__main__':
         "locktime": 0,
         "vin": [
             {
-                "txid": "f1e4f2dc7cdaae0d7968f63be5a1946d5937d0005132d5acae6a03df0767b0b6",
+                "txid": "c68b824392d8f7883a261027c94419776f7fd78e33ec1e01fb057a785713480a",
                 "vout": 0,
-                "type": "pubkeyhash",
+                "type": "scripthash",
                 "scriptSig": {"asm": "", "hex": ""},
                 "sequence": 4294967295,
             },
         ],
         "vout": [
             {
-                "value": 1.10000000,
+                "value": 0.22320000,
                 "n": 0,
                 "scriptPubKey": {"asm": "", "hex": "a914f50c7f0e3d3d1a11e7caece8961299a755413d1087"},
                 "scriptRedem": "5121023748130bb04b235410c792899091f30416012fa70e51bf0e6501fccc17babd8b51ae",
@@ -80,10 +80,11 @@ if __name__ == '__main__':
     }
     test = Transaction()
     test.creat_tx(testjson)
-    testraw = "0200000001b6b06707df036aaeacd5325100d037596d94a1e53bf668790daeda7cdcf2e4f10000000000ffffffff0180778e060000000017a914f50c7f0e3d3d1a11e7caece8961299a755413d108700000000"
-    testsign = "0200000001b6b06707df036aaeacd5325100d037596d94a1e53bf668790daeda7cdcf2e4f1000000006a47304402207fc675aa7104879545dc416935ffe4fa1d098ab2b2c55e2e39e88e8725e54ab002201b0c8bf5c2880ce3ad31b4517cdce117357e8aa2518aa130591f68c02f3b80e9012102a0060ddf0c26be657eddf2b23146a869b9f3591e3853f41f3fa431f0082fc811ffffffff0180778e060000000017a914f50c7f0e3d3d1a11e7caece8961299a755413d108700000000"
+    testraw = "02000000010a481357787a05fb011eec338ed77f6f771944c92710263a88f7d89243828bc60000000000ffffffff01809354010000000017a914f50c7f0e3d3d1a11e7caece8961299a755413d108700000000"
+    testsign = "020000000158e52f0d54b8bd8217e1f2a10f87e68c8a64651f8620cc6dc22d970272b4f4ed000000006b483045022100fbe046f5b0b9ed4019c8c5a583345f91439b5ed057af3b9d92691d3f8706979402200a6f64d5f940ee830855749b85aca2150ea8bc5ec475251e2cc2ea621ff994170121025d37fe014e50a5126e9ddff1cbf1ddf98c06b9f5a5af5cd96028341d8959afa9ffffffff01201a56010000000017a91420c2309cd2fcdbbc6bd704465cdc82185bcfa3508700000000"
     if test.raw_tx == testraw:
-        signed_tx = sign_tx(test.raw_tx, 0, "cVWmtro3acH4rSQVFAPXjo9SNAWKqd9cyJPgcKHdvftzmQ6NEnzK", "0x6f", 1)
+        signed_tx = sign_tx(test.raw_tx, 0, "cVWmtro3acH4rSQVFAPXjo9SNAWKqd9cyJPgcKHdvftzmQ6NEnzK",
+                            "0xc4", 1, "512102a0060ddf0c26be657eddf2b23146a869b9f3591e3853f41f3fa431f0082fc81151ae")
         if signed_tx == testsign:
             print("The class works well.")
         else:
