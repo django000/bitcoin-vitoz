@@ -1,14 +1,81 @@
 # !/usr/bin/env python
 
 import re
+import os
 import sys
 import copy
 import hashlib
 import binascii
+import random
 from config import *
 from bitcoin import ecdsa_raw_sign
 from bitcoin import encode, decode
 from bitcoin import privkey_to_pubkey
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def gene_file(sizes):
+    for i in sizes:
+        with open("statics/%sKB" % i, "wb") as f:
+            f.write(os.urandom(1024 * i))
+
+
+def bar_plot(xlist, ylist, width=0.46, color="dodgerblue"):
+    lens = len(xlist)
+    fig, ax = plt.subplots()
+    ind = np.arange(lens)
+    res = ax.bar(ind, ylist, width, color=color, alpha=1)
+    ax.set_xticklabels(xlist)
+    ax.set_xticks(ind)
+    ax.set_ylim([0, 180])
+    ax.set_title("Time of the key pair generation")
+    ax.set_ylabel("Time in milliseconds (ms)")
+    ax.set_xlabel("Modulus size of $N$ (bits)")
+    for i in res:
+        h = i.get_height()
+        ax.text(i.get_x() + width / 2, 1.03 * h, "%s" % h, ha='center', va='bottom')
+    plt.show()
+
+
+def line_plot(xlist=[1024, 1536, 2048, 2560, 3072]):
+    ls = ["-", "--", "-.", ":"]
+    marker = ["o", "v", "^", "D", "x", "+"]
+    fig, ax = plt.subplots()
+    ind = np.arange(len(ylist))
+    ax.set_ylim([50, 225])
+    for i in xlist:
+        ax.plot(ind, results[i], marker=random.choice(marker), ls=random.choice(ls), label="%s bits" % i)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels)
+    ax.set_xticks(ind)
+    ax.set_xticklabels(ylist)
+    ax.set_xlabel("File size of $m$ (KB)")
+    ax.set_ylabel("Time in milliseconds (ms)")
+    ax.set_title("Time of the key pair generation")
+    plt.show()
+
+
+def linem_plot():
+    res = []
+    ls = ["-", "--", "-.", ":"]
+    marker = ["o", "v", "^", "D", "x", "+"]
+    fig, ax = plt.subplots()
+    ind = np.arange(len(xlist))
+    ax.set_ylim([0, 1000])
+    res.append(ax.plot(ind, results["1KB"], marker="^", ls="-.", label="Laptop"))
+    res.append(ax.plot(ind, results["1KBM"], marker="v", ls="--", label="Mobile phone"))
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels)
+    ax.set_xticks(ind)
+    ax.set_xticklabels(xlist)
+    ax.set_xlabel("Modulus size of $N$ (bits)")
+    ax.set_ylabel("Time in milliseconds (ms)")
+    ax.set_title("Time of the key pair generation")
+    for k in ["1KB", "1KBM"]:
+        for a, b in zip(ind, results[k]):
+            ax.text(a, b + 10, str(b), ha='center', va='bottom')
+    plt.show()
 
 
 def sign_tx(raw_tx, index, privkey, version_byte, hashcode, redem=""):
@@ -21,7 +88,7 @@ def sign_tx(raw_tx, index, privkey, version_byte, hashcode, redem=""):
         signing_tx = sign_form(raw_tx, index, mk_pkscript(version_byte, hash160(pubkey)), hashcode)
     elif version_byte in version_dict["scripthash"].values():
         assert redem != "", "Empty string found in parameter redem ."
-        signing_tx = sign_form(raw_tx, index, mk_pkscript(version_byte, hash160(redem)), hashcode)
+        signing_tx = sign_form(raw_tx, index, redem, hashcode)
     else:
         raise ValueError("Unknown version_byte: '%s' ." % version_byte)
 
@@ -32,31 +99,39 @@ def sign_tx(raw_tx, index, privkey, version_byte, hashcode, redem=""):
     if version_byte in version_dict["pubkeyhash"].values():
         json_tx["vin"][index]["scriptSig"]["hex"] = call_len(len(sig)) + sig + call_len(len(pubkey)) + pubkey
     elif version_byte in version_dict["scripthash"].values():
-        json_tx["vin"][index]["scriptSig"]["hex"] = deal_sig(json_tx["vin"][index]["scriptSig"]["hex"], sig, redem)
+        json_tx["vin"][index]["scriptSig"]["hex"] = deal_sig(
+            json_tx["vin"][index]["scriptSig"]["hex"], sig, redem, privkey)
     else:
         raise ValueError("Unknown version_byte: '%s' ." % version_byte)
     return json2raw(json_tx)
 
 
-def deal_sig(befsig, newsig, redem):
+def deal_sig(befsig, newsig, redem, privkey):
     if not befsig:
         return op_dict["OP_0"][2:] + call_len(len(newsig)) + newsig + call_len(len(redem)) + redem
     else:
         assert befsig[:2] == op_dict["OP_0"][2:]
-        part = []
-        pos = 2
-        lens = len(befsig)
-        while pos < lens:
-            inlen, inb = read_var_len(befsig[pos:pos + 10])
-            pos += inb
-            part.append(befsig[pos:pos + inlen])
-            pos += inlen
-        assert part[-1] == redem
-        part.insert(-1, newsig)
+        partsig = decode_re_sig(befsig[2:])
+        assert partsig[-1] == redem
+        partpk = decode_re_sig(redem[2:-4])
+        index = partpk.index(privkey_to_pubkey(privkey))
+        partsig.insert(index, newsig)
         res = op_dict["OP_0"][2:]
-        for _, item in enumerate(part):
+        for _, item in enumerate(partsig):
             res += call_len(len(item)) + item
         return res
+
+
+def decode_re_sig(instr):
+    part = []
+    pos = 0
+    lens = len(instr)
+    while pos < lens:
+        inlen, inb = read_var_len(instr[pos:pos + 10])
+        pos += inb
+        part.append(instr[pos:pos + inlen])
+        pos += inlen
+    return part
 
 
 def sign_form(raw_tx, index, pkscript, hashcode):
@@ -177,24 +252,6 @@ def raw2json(raw_tx):
     return json_tx
 
 
-def get_address(version_byte, instr):
-    tmp = version_byte[2:] + instr
-    res = tmp + hash256(tmp)[:8]
-    if version_byte == version_dict["main"]["pubkeyhash"]:
-        return "1" + change_base(res, 256, 58)
-    else:
-        return change_base(res, 256, 58)
-
-
-def check_address(address):
-    res = safe_hexlify(change_base(address, 58, 256))
-    if address.startswith("1"):
-        res = "00" + res
-    if hash256(res[:-8])[:8] != res[-8:]:
-        raise ValueError("Invalid address to parse .")
-    return res[2:-8]
-
-
 def change_base(instr, bef, aft, minlen=0):
     if bef == aft:
         try:
@@ -288,3 +345,13 @@ def read_var_len(instr):
     else:
         inb = pow(2, tmp - 75)
         return byte2dec(instr[2:2 + inb]) * 2, inb + 2
+
+
+def dec_to_bytes(num):
+    res = bytearray()
+    while num > 0:
+        res.extend([num % 256])
+        num //= 256
+    for i in range(32 - len(res)):
+        res.extend([0])
+    return res[::-1]
