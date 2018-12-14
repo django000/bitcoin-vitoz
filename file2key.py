@@ -4,7 +4,7 @@ import hashlib
 from config import version_dict
 from random import randrange
 from ecdsa import SigningKey, SECP256k1
-from common import bin_sha256, dec_to_bytes, hash256, change_base, safe_hexlify, hash160
+from common import bin_sha256, dec2hex, hash256, change_base, safe_hexlify, hash160
 
 q = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
@@ -45,7 +45,7 @@ def get_hash(typ, con, lam):
         with open(con, 'rb') as f:
             m.update(f.read())
     else:
-        m.update(bytearray(con, "ascii"))
+        m.update(bytearray(con, "utf-8"))
     salt = randrange(2 ** (1024 - 1), 2 ** 1024)
     m.update(bytearray.fromhex(("{:0%sx}" % (lam // 4)).format(salt)))
     res = bin_sha256(m.hexdigest())
@@ -97,8 +97,7 @@ def decode_wif(wifkey):
 
 
 def privkey_to_pubkey(sk):
-    sk = dec_to_bytes(sk) if isinstance(sk, int) else sk
-    sk = SigningKey.from_string(dec_to_bytes(sk), curve=SECP256k1)
+    sk = SigningKey.from_string(bytes.fromhex(sk), curve=SECP256k1)
     pk = sk.verifying_key.to_string()
     return "04" + "".join(["{:02x}".format(i) for i in pk])
 
@@ -121,6 +120,16 @@ def pubkey_to_address(version_byte, instr):
         return change_base(res, 256, 58)
 
 
+def check_addrsk(address, sk, head):
+    if len(sk) != 52:
+        return False
+    addr_comp = pubkey_to_address(privkey_to_compk(sk), head)
+    if address == addr_comp:
+        return True
+    else:
+        return False
+
+
 def check_address(address):
     res = safe_hexlify(change_base(address, 58, 256))
     if address.startswith("1"):
@@ -133,17 +142,18 @@ def main(typ, con, lam):
     i, j, inverse = generate_pq(lam // 2)
     N = i * j
     sk = pow(int(h, 16), inverse, N) % q
-    pk = privkey_to_pubkey(sk)
-    return sk, pk
-    # compk = pubkey_to_compk(pk)
-    # print("h: {0}\nsk: {1}\npk: {2}".format(h, sk, pk))
+    sk_hex = dec2hex(sk)
+    pk_hex = privkey_to_pubkey(sk_hex)
+    # compk = pubkey_to_compk(pk_hex)
+    assert len(sk_hex) == 64 and len(pk_hex) == 130
+    return h, sk_hex, pk_hex
 
 
 def test(ffile, lam):
     res = list()
     for i in lam:
         sum = 0
-        for _ in range(100):
+        for _ in range(10):
             s = time.time()
             main("file", "statics/%s" % ffile, i)
             sum += time.time() - s
@@ -151,18 +161,21 @@ def test(ffile, lam):
     return res
 
 
-# if __name__ == '__main__':
-    # main("file", "statics/1KB", 1024)
-    # print(test("1KB", 1536))
+if __name__ == '__main__':
+    # m_hash, sk, pk = main("file", "statics/sample_10KB", 1024)
+    # m_hash, sk, pk = main("str", "a little test", 1024)
 
-    # typ, con, lam = input("Please enter the type, content, and lambda: ").split()
-    # main(typ, con, int(lam))
+    typ = input("Please type the input type (file or str): ")
+    con = input("Please type the file path or the content: ")
+    lam = input("Please type the security parameter: ")
+    if typ == "file":
+        con = "statics/sample_" + con
+    m_hash, sk, pk = main(typ, con, int(lam))
 
-    # def check_addrsk(address, sk, head):
-    #     if len(sk) != 52:
-    #         return False
-    #     addr_comp = pubkey_to_address(privkey_to_compk(k), head)
-    #     if address == addr_comp:
-    #         return True
-    #     else:
-    #         return False
+    print("""Key Pair Commitment Scheme Results:
+1) Hash of the contract: 0x{0}.
+2) Corresponding private key: 0x{1}.
+3) Corresponding public key: 0x{2}.
+""".format(m_hash, sk, pk))
+
+    # print(test("sample_1KB", [1024]))

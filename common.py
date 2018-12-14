@@ -1,81 +1,14 @@
 # !/usr/bin/env python
 
 import re
-import os
 import sys
 import copy
 import hashlib
 import binascii
-import random
 from config import *
 from bitcoin import ecdsa_raw_sign
 from bitcoin import encode, decode
 from bitcoin import privkey_to_pubkey
-import matplotlib.pyplot as plt
-import numpy as np
-
-
-def gene_file(sizes):
-    for i in sizes:
-        with open("statics/%sKB" % i, "wb") as f:
-            f.write(os.urandom(1024 * i))
-
-
-def bar_plot(xlist, ylist, width=0.46, color="dodgerblue"):
-    lens = len(xlist)
-    fig, ax = plt.subplots()
-    ind = np.arange(lens)
-    res = ax.bar(ind, ylist, width, color=color, alpha=1)
-    ax.set_xticklabels(xlist)
-    ax.set_xticks(ind)
-    ax.set_ylim([0, 180])
-    ax.set_title("Time of the key pair generation")
-    ax.set_ylabel("Time in milliseconds (ms)")
-    ax.set_xlabel("Modulus size of $N$ (bits)")
-    for i in res:
-        h = i.get_height()
-        ax.text(i.get_x() + width / 2, 1.03 * h, "%s" % h, ha='center', va='bottom')
-    plt.show()
-
-
-def line_plot(xlist=[1024, 1536, 2048, 2560, 3072]):
-    ls = ["-", "--", "-.", ":"]
-    marker = ["o", "v", "^", "D", "x", "+"]
-    fig, ax = plt.subplots()
-    ind = np.arange(len(ylist))
-    ax.set_ylim([50, 225])
-    for i in xlist:
-        ax.plot(ind, results[i], marker=random.choice(marker), ls=random.choice(ls), label="%s bits" % i)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels)
-    ax.set_xticks(ind)
-    ax.set_xticklabels(ylist)
-    ax.set_xlabel("File size of $m$ (KB)")
-    ax.set_ylabel("Time in milliseconds (ms)")
-    ax.set_title("Time of the key pair generation")
-    plt.show()
-
-
-def linem_plot():
-    res = []
-    ls = ["-", "--", "-.", ":"]
-    marker = ["o", "v", "^", "D", "x", "+"]
-    fig, ax = plt.subplots()
-    ind = np.arange(len(xlist))
-    ax.set_ylim([0, 1000])
-    res.append(ax.plot(ind, results["1KB"], marker="^", ls="-.", label="Laptop"))
-    res.append(ax.plot(ind, results["1KBM"], marker="v", ls="--", label="Mobile phone"))
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels)
-    ax.set_xticks(ind)
-    ax.set_xticklabels(xlist)
-    ax.set_xlabel("Modulus size of $N$ (bits)")
-    ax.set_ylabel("Time in milliseconds (ms)")
-    ax.set_title("Time of the key pair generation")
-    for k in ["1KB", "1KBM"]:
-        for a, b in zip(ind, results[k]):
-            ax.text(a, b + 10, str(b), ha='center', va='bottom')
-    plt.show()
 
 
 def sign_tx(raw_tx, index, privkey, version_byte, hashcode, redem=""):
@@ -347,11 +280,10 @@ def read_var_len(instr):
         return byte2dec(instr[2:2 + inb]) * 2, inb + 2
 
 
-def dec_to_bytes(num):
-    res = bytearray()
-    while num > 0:
-        res.extend([num % 256])
-        num //= 256
-    for i in range(32 - len(res)):
-        res.extend([0])
-    return res[::-1]
+def dec2hex(num):
+    val = hex(num)[2:]
+    assert len(val) <= 64
+    return "0" * (64 - len(val)) + val
+
+# if __name__ == '__main__':
+    # gene_file([1, 10, 100, 1024, 10240, 102400])
